@@ -1,0 +1,19 @@
+categories:
+  - title: ":boom: Breaking Changes"
+    label: "breaking"
+  - title: ":package: Build System"
+    label: "build"
+  - title: ":construction_worker: Continuous Integration"
+    label: "ci"
+  - title: ":books: Documentation"
+    label: "documentation"
+  - title: ":rocket: Features"
+    label: "enhancement"
+  - title: ":beetle: Fixes"
+    label: "bug"
+  - title: ":hammer: Refactoring"
+    label: "refactoring"
+template: |
+  ## What’s Changed
+
+  $CHANGES
