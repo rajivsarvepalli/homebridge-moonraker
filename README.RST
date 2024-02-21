@@ -13,9 +13,12 @@ Homebridge Moonraker is a homebridge plugin designed to enable homekit integrati
 with moonraker enabled 3d printers. Moonraker_ is a web server developed for the
 Klipper_ 3d printing firmware.
 
-Overall, homebridge-moonraker creates the following accessories for HomeKit:
+Overall, homebridge-moonraker creates the following accessories for HomeKit
+(which are elected into by the features list in the config):
 
-* TBD.
+* A thermostat for the bed heater
+* A thermostat for the extruder heater
+* A humidity sensor for the the print progress
 
 📚 Documentation
 ---------------------

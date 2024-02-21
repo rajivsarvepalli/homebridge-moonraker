@@ -5,11 +5,63 @@
   "schema": {
     "type": "object",
     "properties": {
-      "name": {
-        "title": "Name",
-        "type": "string",
+      "features": {
+        "title": "Enabled Features",
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "title": "Features",
+          "type": "string",
+          "enum": [
+            "Camera(s)",
+            "Bed Thermostat",
+            "Extruder Thermostat",
+            "Print Progress",
+            "Temperature Sensor(s)",
+            "Print Controls",
+            "Notifications"
+          ]
+        }
+      },
+      "printers": {
+        "title": "Printer Configuration(s)",
+        "type": "array",
         "required": true,
-        "default": "Example Dynamic Platform"
+        "items": {
+          "type": "object",
+          "properties": {
+            "moonrakerUrl": {
+              "required": true,
+              "type": "string",
+              "title": "Moonraker URL",
+              "description": "The moonraker url(s) in http format for your 3d printer."
+            },
+            "name": {
+              "required": true,
+              "type": "string",
+              "title": "Printer Name"
+            },
+            "cameraUrls": {
+              "title": "Camera Url(s)",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "title": "Camera URL",
+                "description": "The RTP stream URL(s) for your 3D printer."
+              }
+            },
+            "temperatureSensors": {
+              "title": "Temperature Sensor(s)",
+              "type": "array",
+              "items": {
+                "type": "string",
+                "title": "Temperature Sensor Name",
+                "default": "chamber",
+                "description": "The temperature sensor(s) to monitor (usually just chamber)."
+              }
+            }
+          }
+        }
       }
     }
   }

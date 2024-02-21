@@ -1,19 +1,23 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
-import { ExamplePlatformAccessory } from './platformAccessory';
+import { HomebridgeMoonrakerConfig } from './model/config/config';
+import { MoonrakerPrinterAccessory } from './accessories/printerAccessory';
+import { MoonrakerClient } from 'moonraker-client';
+import { verifyDeviceConnection } from './util/verifyDevice';
 
 /**
  * HomebridgePlatform
  * This class is the main constructor for your plugin, this is where you should
  * parse the user config and discover/register accessories with Homebridge.
  */
-export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
+export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service = this.api.hap.Service;
   public readonly Characteristic: typeof Characteristic = this.api.hap.Characteristic;
 
   // this is used to track restored cached accessories
   public readonly accessories: PlatformAccessory[] = [];
+  private homebridgeMoonrakerConfig: HomebridgeMoonrakerConfig;
 
   constructor(
     public readonly log: Logger,
@@ -21,6 +25,8 @@ export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
     public readonly api: API,
   ) {
     this.log.debug('Finished initializing platform:', this.config.name);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    this.homebridgeMoonrakerConfig = config as any;
 
     // When this event is fired it means Homebridge has restored all cached accessories from disk.
     // Dynamic Platform plugins should only register new accessories after this event was fired,
@@ -49,68 +55,44 @@ export class ExampleHomebridgePlatform implements DynamicPlatformPlugin {
    * Accessories must only be registered once, previously created accessories
    * must not be registered again to prevent "duplicate UUID" errors.
    */
-  discoverDevices() {
+  async discoverDevices() {
 
-    // EXAMPLE ONLY
-    // A real plugin you would discover accessories from the local network, cloud services
-    // or a user-defined array in the platform config.
-    const exampleDevices = [
-      {
-        exampleUniqueId: 'ABCD',
-        exampleDisplayName: 'Bedroom',
-      },
-      {
-        exampleUniqueId: 'EFGH',
-        exampleDisplayName: 'Kitchen',
-      },
-    ];
-
+    const printers = this.config.printers;
     // loop over the discovered devices and register each one if it has not already been registered
-    for (const device of exampleDevices) {
+    for (const printer of printers) {
 
-      // generate a unique id for the accessory this should be generated from
-      // something globally unique, but constant, for example, the device serial
-      // number or MAC address
-      const uuid = this.api.hap.uuid.generate(device.exampleUniqueId);
 
-      // see if an accessory with the same uuid has already been registered and restored from
-      // the cached devices we stored in the `configureAccessory` method above
-      const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
+      const device = new MoonrakerClient({
+        moonrakerUrl: printer.moonrakerUrl,
+        httpTimeout: 5000,
+      });
 
-      if (existingAccessory) {
-        // the accessory already exists
-        this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
+      if(await verifyDeviceConnection(this.log, device)) {
+        this.log.info('Succesfully connected to printer with url: %s', device.config.moonrakerUrl);
 
-        // if you need to update the accessory.context then you should run `api.updatePlatformAccessories`. eg.:
-        // existingAccessory.context.device = device;
-        // this.api.updatePlatformAccessories([existingAccessory]);
+        // generate a unique id for the accessory this should be generated from
+        // something globally unique, but constant, for example, the device serial
+        // number or MAC address
+        const uuid = this.api.hap.uuid.generate(printer.moonrakerUrl);
 
-        // create the accessory handler for the restored accessory
-        // this is imported from `platformAccessory.ts`
-        new ExamplePlatformAccessory(this, existingAccessory);
+        const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
 
-        // it is possible to remove platform accessories at any time using `api.unregisterPlatformAccessories`, eg.:
-        // remove platform accessories when no longer present
-        // this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [existingAccessory]);
-        // this.log.info('Removing existing accessory from cache:', existingAccessory.displayName);
-      } else {
-        // the accessory does not yet exist, so we need to create it
-        this.log.info('Adding new accessory:', device.exampleDisplayName);
+        if (existingAccessory) {
+          // the accessory already exists
+          this.log.info('Restoring existing accessory from cache: %s', existingAccessory.displayName);
+          new MoonrakerPrinterAccessory(this, existingAccessory, this.log, printer, this.homebridgeMoonrakerConfig.features, device);
+        } else {
+          // register the accessory
+          this.log.info('Adding new accessory: %s', printer.name);
+          const accessory = new this.api.platformAccessory(printer.name, uuid);
 
-        // create a new accessory
-        const accessory = new this.api.platformAccessory(device.exampleDisplayName, uuid);
+          this.api.registerPlatformAccessories(PLATFORM_NAME, PLUGIN_NAME, [accessory]);
 
-        // store a copy of the device object in the `accessory.context`
-        // the `context` property can be used to store any data about the accessory you may need
-        accessory.context.device = device;
-
-        // create the accessory handler for the newly create accessory
-        // this is imported from `platformAccessory.ts`
-        new ExamplePlatformAccessory(this, accessory);
-
-        // link the accessory to your platform
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+          new MoonrakerPrinterAccessory(this, accessory, this.log, printer, this.homebridgeMoonrakerConfig.features, device);
+        }
       }
+
+      this.log.error('Failed to connect to printer with url: %s; skipped registering this printer', device.config.moonrakerUrl);
     }
   }
 }
