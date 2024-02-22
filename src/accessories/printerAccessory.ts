@@ -6,6 +6,7 @@ import { MoonrakerThermostatService, ThermostatType } from '../handler/moonraker
 import { MoonrakerPluginServiceContext } from '../model/serviceContext';
 import { MoonrakerPluginService } from '../handler/moonrakerPluginService';
 import { HomebridgeMoonrakerPlatform } from '../platform';
+import { MoonrakerProgressService } from '../handler/moonrakerProgressSensor';
 
 export class MoonrakerPrinterAccessory {
   services: MoonrakerPluginService[] = [];
@@ -41,6 +42,10 @@ export class MoonrakerPrinterAccessory {
 
     if (this.hasFeature(Feature.ExtruderThermostat)) {
       this.services.push(new MoonrakerThermostatService(ThermostatType.Extruder, Feature.ExtruderThermostat, context));
+    }
+
+    if (this.hasFeature(Feature.PrintProgress)) {
+      this.services.push(new MoonrakerProgressService(Feature.PrintProgress, context));
     }
   }
 

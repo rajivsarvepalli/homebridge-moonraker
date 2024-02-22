@@ -61,13 +61,13 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
     // loop over the discovered devices and register each one if it has not already been registered
     for (const printer of printers) {
 
-
       const device = new MoonrakerClient({
         moonrakerUrl: printer.moonrakerUrl,
         httpTimeout: 5000,
       });
+      const isPrinterUp = await verifyDeviceConnection(this.log, device);
 
-      if(await verifyDeviceConnection(this.log, device)) {
+      if(isPrinterUp) {
         this.log.info('Succesfully connected to printer with url: %s', device.config.moonrakerUrl);
 
         // generate a unique id for the accessory this should be generated from
@@ -90,9 +90,9 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
 
           new MoonrakerPrinterAccessory(this, accessory, this.log, printer, this.homebridgeMoonrakerConfig.features, device);
         }
+      } else {
+        this.log.error('Failed to connect to printer with url: %s; skipped registering this printer', device.config.moonrakerUrl);
       }
-
-      this.log.error('Failed to connect to printer with url: %s; skipped registering this printer', device.config.moonrakerUrl);
     }
   }
 }

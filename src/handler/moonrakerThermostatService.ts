@@ -14,13 +14,15 @@ export enum ThermostatType {
     Extruder,
 }
 
+// https://github.com/phenotypic/homebridge-web-thermostat/blob/master/index.js
+
 export class MoonrakerThermostatService extends MoonrakerPluginService {
   public service: Service;
   protected state: ThermostatState;
   Characteristic: typeof Characteristic;
   type: ThermostatType;
 
-  constructor(type: ThermostatType, name: string, context: MoonrakerPluginServiceContext) {
+  constructor(type: ThermostatType, private readonly name: string, context: MoonrakerPluginServiceContext) {
     super(context);
 
     const { device, accessory, platform } = context;
@@ -32,58 +34,58 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
     };
     this.type = type;
 
-
     const service = accessory.getService(name)
         || accessory.addService(platform.Service.Thermostat, name, name);
-
-    // Use custom target and currrent temperature characteristics due to the min and max limitations on the default characteristics
-    const maxValue: number = this.type === ThermostatType.BedHeater ? 150 : 400;
-    const targetTemperature = new platform.Characteristic('Target Temperature', '00000035-0000-1000-8000-0026BB765291', {
-      format: Formats.FLOAT,
-      perms: [Perms.NOTIFY, Perms.PAIRED_READ, Perms.PAIRED_WRITE],
-      unit: Units.CELSIUS,
-      minValue: 0,
-      maxValue: maxValue,
-      minStep: 0.1,
-    });
-
-    const currentTemperature = new platform.Characteristic('Current Temperature', '00000011-0000-1000-8000-0026BB765291', {
-      format: Formats.FLOAT,
-      perms: [Perms.NOTIFY, Perms.PAIRED_READ],
-      unit: Units.CELSIUS,
-      minValue: 0,
-      maxValue: maxValue,
-      minStep: 0.1,
-    });
-    service.getCharacteristic('Target Temperature') || service.addCharacteristic(targetTemperature);
-    service.getCharacteristic('Current Temperature') || service.addCharacteristic(currentTemperature);
+    const minValue: number = this.type === ThermostatType.BedHeater ? 60 : 150;
+    const stepSize: number = this.type === ThermostatType.BedHeater ? 5 : 10;
+    const maxValue: number = this.type === ThermostatType.BedHeater ? 120 : 350;
 
     if(this.type === ThermostatType.Extruder) {
       device.subscribeToPrinterObjectStatusWithListener(
         {
           extruder: ['target'],
-        }, this.handleUpdateTargetTemperature,
+        }, this.handleUpdateTargetTemperature.bind(this),
       );
     } else {
       device.subscribeToPrinterObjectStatusWithListener(
         {
           heater_bed: ['target'],
-        }, this.handleUpdateTargetTemperature,
+        }, this.handleUpdateTargetTemperature.bind(this),
       );
     }
 
+    service.getCharacteristic(this.Characteristic.Name)
+      .onGet(this.handleNameGet.bind(this));
+
     service.getCharacteristic(this.Characteristic.CurrentTemperature)
+      .setProps({
+        minValue: minValue,
+        maxValue: maxValue,
+      })
       .onGet(this.handleCurrentTemperatureGet.bind(this));
 
     service.getCharacteristic(this.Characteristic.CurrentHeatingCoolingState)
+      .setProps({
+        validValues: [this.Characteristic.CurrentHeatingCoolingState.OFF,
+          this.Characteristic.CurrentHeatingCoolingState.HEAT],
+      })
       .onGet(this.handleCurrentHeatingCoolingStateGet.bind(this));
 
     service.getCharacteristic(this.Characteristic.TargetHeatingCoolingState)
+      .setProps({
+        validValues: [this.Characteristic.CurrentHeatingCoolingState.OFF,
+          this.Characteristic.CurrentHeatingCoolingState.HEAT],
+      })
       .onGet(this.handleTargetHeatingCoolingStateGet.bind(this))
       .onSet(this.handleTargetHeatingCoolingStateSet.bind(this));
 
     service
-      .getCharacteristic('Target Temperature')!
+      .getCharacteristic(this.Characteristic.TargetTemperature)
+      .setProps({
+        minValue: minValue,
+        maxValue: maxValue,
+        minStep: stepSize,
+      })
       .onGet(this.handleTargetTemperatureGet.bind(this))
       .onSet(this.handleTargetTemperatureSet.bind(this));
 
@@ -108,6 +110,10 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
     return this.isHeaterOn();
   }
 
+  async handleNameGet() {
+    return this.name;
+  }
+
   /**
    * Handle requests to set the "Target Heating Cooling State" characteristic
    */
@@ -118,13 +124,15 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
       case this.Characteristic.CurrentHeatingCoolingState.OFF: {
         if(this.type === ThermostatType.Extruder) {
           return this.context.device.setExtruderTemperature(0)
-            .catch(handleError(this.context.log, this.context.config.moonrakerUrl, undefined))
-            .then(() => this.Characteristic.CurrentHeatingCoolingState.OFF);
+            .then(() => this.Characteristic.CurrentHeatingCoolingState.OFF)
+            .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
+              this.Characteristic.CurrentHeatingCoolingState.OFF));
         }
 
         return this.context.device.setBedTemperature(0)
-          .catch(handleError(this.context.log, this.context.config.moonrakerUrl, undefined))
-          .then(() => this.Characteristic.CurrentHeatingCoolingState.OFF);
+          .then(() => this.Characteristic.CurrentHeatingCoolingState.OFF)
+          .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
+            this.Characteristic.CurrentHeatingCoolingState.OFF));
       }
 
       case this.Characteristic.CurrentHeatingCoolingState.HEAT: {
@@ -156,7 +164,6 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
 
   private async isHeaterOn(): Promise<CharacteristicValue> {
     const currentValue = this.context.device.getOctoprintPrinterData()
-      .catch(handleError(this.context.log, this.context.config.moonrakerUrl, undefined))
       .then(data => {
 
         let heaterTemp = data?.temperature?.tool0.target;
@@ -169,7 +176,9 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
 
         return isHeaterOn ? this.Characteristic.CurrentHeatingCoolingState.HEAT
           : this.Characteristic.CurrentHeatingCoolingState.OFF;
-      });
+      })
+      .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
+        this.Characteristic.CurrentHeatingCoolingState.OFF));
 
     return currentValue;
   }
