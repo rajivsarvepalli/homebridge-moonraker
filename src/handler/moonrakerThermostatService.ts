@@ -59,7 +59,7 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
 
     service.getCharacteristic(this.Characteristic.CurrentTemperature)
       .setProps({
-        minValue: minValue,
+        minValue: 0,
         maxValue: maxValue,
       })
       .onGet(this.handleCurrentTemperatureGet.bind(this));

@@ -7,6 +7,8 @@ import { MoonrakerPluginServiceContext } from '../model/serviceContext';
 import { MoonrakerPluginService } from '../handler/moonrakerPluginService';
 import { HomebridgeMoonrakerPlatform } from '../platform';
 import { MoonrakerProgressService } from '../handler/moonrakerProgressSensor';
+import { MoonrakerPrintControlsService } from '../handler/moonrakerPrintControls';
+import { MoonrakerNotificationService } from '../handler/moonrakerNotificationService';
 
 export class MoonrakerPrinterAccessory {
   services: MoonrakerPluginService[] = [];
@@ -46,6 +48,14 @@ export class MoonrakerPrinterAccessory {
 
     if (this.hasFeature(Feature.PrintProgress)) {
       this.services.push(new MoonrakerProgressService(Feature.PrintProgress, context));
+    }
+
+    if (this.hasFeature(Feature.PrintingControls)) {
+      this.services.push(new MoonrakerPrintControlsService(Feature.PrintingControls, context));
+    }
+
+    if (this.hasFeature(Feature.Notifications)) {
+      this.services.push(new MoonrakerNotificationService(Feature.Notifications, context));
     }
   }
 
