@@ -86,7 +86,7 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
           this.log.info('Adding new accessory: %s', printer.name);
           const accessory = new this.api.platformAccessory(printer.name, uuid);
 
-          this.api.registerPlatformAccessories(PLATFORM_NAME, PLUGIN_NAME, [accessory]);
+          this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
 
           new MoonrakerPrinterAccessory(this, accessory, this.log, printer, this.homebridgeMoonrakerConfig.features, device);
         }

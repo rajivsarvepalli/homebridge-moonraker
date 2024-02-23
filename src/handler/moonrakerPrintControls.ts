@@ -13,17 +13,17 @@ export class MoonrakerPrintControlsService extends MoonrakerPluginService {
     const { accessory, platform } = context;
     this.Characteristic = platform.Characteristic;
     const service = accessory.getService(name)
-          || accessory.addService(platform.Service.SmartSpeaker, name, name);
+          || accessory.addService(platform.Service.Lightbulb, name, name);
 
-    service.getCharacteristic(this.Characteristic.ConfiguredName)
+    service.getCharacteristic(this.Characteristic.Name)
       .onGet(this.handleNameGet.bind(this));
+    service.getCharacteristic(this.Characteristic.On)
+      .onGet(this.handleOnGet.bind(this))
+      .onSet(this.handleOnSet.bind(this));
 
-    service.getCharacteristic(this.Characteristic.CurrentMediaState)
-      .onGet(this.handleCurrentMediaStateGet.bind(this));
-
-    service.getCharacteristic(this.Characteristic.TargetMediaState)
-      .onGet(this.handleTargetMediaStateGet.bind(this))
-      .onSet(this.handleTargetMediaStateSet.bind(this));
+    service.getCharacteristic(this.Characteristic.Brightness)
+      .onGet(this.handleBrightnessGet.bind(this))
+      .onSet(this.handleBrightnessSet.bind(this));
 
     this.service = service;
   }
@@ -32,50 +32,49 @@ export class MoonrakerPrintControlsService extends MoonrakerPluginService {
     return this.name;
   }
 
+  handleBrightnessGet() {
+    return this.context.device.getPrintProgress()
+      .then(data => {
+        return data ? data * 100
+          : 0;
+      })
+      .catch(handleError(this.context.log, this.context.config.moonrakerUrl, 0));
+  }
+
+  handleBrightnessSet(value) {
+    if(value === 0) {
+      this.context.device.cancelPrint()
+        .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
+          undefined));
+      return;
+    }
+  }
+
   /**
    * Handle requests to get the current value of the "Current Media State" characteristic
    */
-  async handleCurrentMediaStateGet() {
+  async handleOnGet() {
     this.context.log.debug('Triggered GET CurrentMediaState');
 
     return this.getCurrentMediaState();
   }
 
-
-  /**
-   * Handle requests to get the current value of the "Target Media State" characteristic
-   */
-  handleTargetMediaStateGet() {
-    this.context.log.debug('Triggered GET TargetMediaState');
-
-    return this.getTargetMediaState();
-  }
-
   /**
    * Handle requests to set the "Target Media State" characteristic
    */
-  handleTargetMediaStateSet(value) {
-    this.context.log.debug('Triggered SET TargetMediaState: %s', value);
+  handleOnSet(value) {
+    this.context.log.debug('Triggered SET On: %s', value);
 
-    switch(value) {
-      case this.Characteristic.TargetMediaState.PLAY: {
-        this.context.device.resumePrint()
-          .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
-            undefined));
-        return;
-      }
-      case this.Characteristic.TargetMediaState.PAUSE: {
-        this.context.device.pausePrint()
-          .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
-            undefined));
-        return;
-      }
-      case this.Characteristic.TargetMediaState.STOP: {
-        this.context.device.cancelPrint()
-          .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
-            undefined));
-        return;
-      }
+    if (value) {
+      this.context.device.resumePrint()
+        .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
+          undefined));
+      return;
+    } else {
+      this.context.device.pausePrint()
+        .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
+          undefined));
+      return;
     }
   }
 
@@ -95,72 +94,20 @@ export class MoonrakerPrintControlsService extends MoonrakerPluginService {
         return this.mapMoonrakerStateToCurrentMediaState(moonrakerState);
       })
       .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
-        this.Characteristic.CurrentMediaState.LOADING));
+        false));
 
     return currentMediaState;
   }
 
-  private getTargetMediaState() {
-    this.context.log.debug('Triggered GET CurrentMediaState');
-
-    // set this to a valid value for CurrentMediaState
-    const currentMediaState = this.context.device.httpRequest({
-      method: 'get',
-      url: '/printer/objects/query',
-      params: {
-        print_stats: '',
-      },
-    })
-      .then(response => {
-        const moonrakerState = response?.data?.result?.status?.print_stats?.state;
-        return this.mapMoonrakerStateToTargetMediaState(moonrakerState);
-      })
-      .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
-        this.Characteristic.CurrentMediaState.LOADING));
-
-    return currentMediaState;
-  }
 
 
   private mapMoonrakerStateToCurrentMediaState(moonrakerState: string | undefined) {
     switch(moonrakerState) {
-      case 'standby': {
-        return this.Characteristic.CurrentMediaState.STOP;
-      }
       case 'printing': {
-        return this.Characteristic.CurrentMediaState.PLAY;
-      }
-      case 'paused': {
-        return this.Characteristic.CurrentMediaState.PAUSE;
-      }
-      case 'complete': {
-        return this.Characteristic.CurrentMediaState.STOP;
-      }
-      case 'cancelled': {
-        return this.Characteristic.CurrentMediaState.INTERRUPTED;
+        return true;
       }
       default: {
-        return this.Characteristic.CurrentMediaState.STOP;
-      }
-    }
-  }
-
-  private mapMoonrakerStateToTargetMediaState(moonrakerState: string | undefined) {
-    switch(moonrakerState) {
-      case 'standby': {
-        return this.Characteristic.TargetMediaState.STOP;
-      }
-      case 'printing': {
-        return this.Characteristic.TargetMediaState.PLAY;
-      }
-      case 'paused': {
-        return this.Characteristic.TargetMediaState.PAUSE;
-      }
-      case 'complete': {
-        return this.Characteristic.TargetMediaState.STOP;
-      }
-      default: {
-        return this.Characteristic.TargetMediaState.STOP;
+        return false;
       }
     }
   }
