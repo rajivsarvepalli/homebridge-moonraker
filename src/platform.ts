@@ -61,7 +61,7 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
     const printers = this.config.printers;
     // loop over the discovered devices and register each one if it has not already been registered
 
-    if (isUniquePrinterNames(printers)) {
+    if (!isUniquePrinterNames(printers)) {
       const printerNames = printers.map(printerConfig => {
         return printerConfig.name;
       });
