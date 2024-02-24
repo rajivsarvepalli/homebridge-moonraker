@@ -26,9 +26,9 @@ export class MoonrakerPrinterAccessory {
     || this.accessory.addService(this.platform.Service.AccessoryInformation);
 
     accessoryInfoService
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, config.manufacturer)
-      .setCharacteristic(this.platform.Characteristic.Model, config.model)
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, config.serialNumber);
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, config.manufacturer ?? 'Moonraker')
+      .setCharacteristic(this.platform.Characteristic.Model, config.model ?? '3d Printer')
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, config.serialNumber ?? 'Unknown');
 
     this.log = log;
     this.features = features;

@@ -32,7 +32,7 @@ export class MoonrakerProgressService extends MoonrakerPluginService {
 
     const humidityProgressName = name + ' Humidity Sensor';
     const humidityService = accessory.getService(humidityProgressName)
-          || accessory.addService(platform.Service.Battery, humidityProgressName, humidityProgressName);
+          || accessory.addService(platform.Service.HumiditySensor, humidityProgressName, humidityProgressName);
 
     // create handlers for required characteristics
     humidityService.getCharacteristic(this.Characteristic.CurrentRelativeHumidity)

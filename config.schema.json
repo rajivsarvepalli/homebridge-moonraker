@@ -70,7 +70,7 @@
               "default": 300,
               "title": "Max Extruder Heater Temp (C)"
             },
-            "notifyCamerToRecordUrl": {
+            "notifyCameraToRecordUrl": {
               "title": "Camera Cancel Recording URL",
               "type": "string",
               "description": "The camera recording url to trigger when a print is canceled (e.g. for homebridge-camera-ui this would something like http://localhost:8123/motion?My+Camera)"

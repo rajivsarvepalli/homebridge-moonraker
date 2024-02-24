@@ -1,11 +1,11 @@
 export interface PrinterConfig {
     moonrakerUrl: string;
     name: string;
-    cameraUrls: string[];
+    notifyCameraToRecordUrl?: string;
     temperatureSensors: TemperatureSensor[];
-    manufacturer: string;
-    model: string;
-    serialNumber: string;
+    manufacturer?: string;
+    model?: string;
+    serialNumber?: string;
     maxBedHeaterTemp: number;
     maxExtruderHeaterTemp: number;
 }

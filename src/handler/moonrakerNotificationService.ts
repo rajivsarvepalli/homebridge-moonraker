@@ -1,6 +1,7 @@
 import { Service, Characteristic } from 'homebridge';
 import { MoonrakerPluginServiceContext } from '../model/serviceContext';
 import { MoonrakerPluginService } from './moonrakerPluginService';
+import axios from 'axios';
 
 interface NotificationState {
     canceled: boolean;
@@ -78,6 +79,16 @@ export class MoonrakerNotificationService extends MoonrakerPluginService {
     this.context.log.debug('Handle state update event: %O', event);
     if (event?.objectNotification?.print_stats?.state === 'canceled') {
       this.state.canceled = true;
+      const notifyCameraUrl = this.context.config.notifyCameraToRecordUrl;
+      if (notifyCameraUrl) {
+        axios.request({
+          method: 'GET',
+          url: notifyCameraUrl,
+        }).catch(() => {
+          return;
+        });
+      }
+
     } else if(event?.objectNotification?.print_stats?.state === 'error') {
       this.state.error = true;
     } else {
