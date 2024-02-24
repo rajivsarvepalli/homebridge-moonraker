@@ -101,7 +101,7 @@
                 "functionBody": "return model.features && model.features.includes('Notifications');"
               },
               "type": "string",
-              "description": "The camera recording url to trigger when a print is canceled (e.g. for homebridge-camera-ui this would something like http://localhost:8123/motion?My+Camera)",
+              "description": "The camera recording url to trigger when a print is canceled (e.g. for homebridge-camera-ui this would typically look like http://localhost:8123/motion?My+Camera+Name)",
               "minLength": 1,
               "maxLength": 1000
             },
