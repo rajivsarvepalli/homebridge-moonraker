@@ -5,6 +5,7 @@ import { HomebridgeMoonrakerConfig } from './model/config/config';
 import { MoonrakerPrinterAccessory } from './accessories/printerAccessory';
 import { MoonrakerClient } from 'moonraker-client';
 import { verifyDeviceConnection } from './util/verifyDevice';
+import { isUniquePrinterNames } from './validator/validateConfig';
 
 /**
  * HomebridgePlatform
@@ -59,6 +60,16 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
 
     const printers = this.config.printers;
     // loop over the discovered devices and register each one if it has not already been registered
+
+    if (isUniquePrinterNames(printers)) {
+      const printerNames = printers.map(printerConfig => {
+        return printerConfig.name;
+      });
+      this.log.error('Printer names are not unique in provided input see names: %O.\n' +
+      ' This plugin will not add any printers until the config is corrected', printerNames);
+      return;
+    }
+
     for (const printer of printers) {
 
       const device = new MoonrakerClient({
@@ -73,7 +84,7 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
         // generate a unique id for the accessory this should be generated from
         // something globally unique, but constant, for example, the device serial
         // number or MAC address
-        const uuid = this.api.hap.uuid.generate(printer.moonrakerUrl);
+        const uuid = this.api.hap.uuid.generate(printer.name);
 
         const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
 
