@@ -2,6 +2,7 @@ import { Service, Characteristic } from 'homebridge';
 import { MoonrakerPluginServiceContext } from '../model/serviceContext';
 import { MoonrakerPluginService } from './moonrakerPluginService';
 import { handleError } from '../util/exceptionHandler';
+import { clamp } from '../util/math';
 
 // Use a lightbulb - 0% is to abort, turn off is to pause, and turn on is to resume
 export class MoonrakerProgressService extends MoonrakerPluginService {
@@ -28,6 +29,14 @@ export class MoonrakerProgressService extends MoonrakerPluginService {
       .onGet(this.handleStatusLowBatteryGet.bind(this));
 
     this.service = service;
+
+    const humidityProgressName = name + ' Humidity Sensor';
+    const humidityService = accessory.getService(humidityProgressName)
+          || accessory.addService(platform.Service.Battery, humidityProgressName, humidityProgressName);
+
+    // create handlers for required characteristics
+    humidityService.getCharacteristic(this.Characteristic.CurrentRelativeHumidity)
+      .onGet(this.handleCurrentPrintProgressGet.bind(this));
   }
 
   async handleNameGet() {
@@ -43,8 +52,10 @@ export class MoonrakerProgressService extends MoonrakerPluginService {
     // set this to a valid value for CurrentRelativeHumidity
     return this.context.device.getPrintProgress()
       .then(data => {
-        return data ? data * 100
+        const percent = data ? data * 100
           : 0;
+
+        return clamp(percent, 0, 100);
       })
       .catch(handleError(this.context.log, this.context.config.moonrakerUrl, 0));
   }

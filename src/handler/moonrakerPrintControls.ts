@@ -2,6 +2,7 @@ import { Service, Characteristic } from 'homebridge';
 import { MoonrakerPluginServiceContext } from '../model/serviceContext';
 import { MoonrakerPluginService } from './moonrakerPluginService';
 import { handleError } from '../util/exceptionHandler';
+import { clamp } from '../util/math';
 
 export class MoonrakerPrintControlsService extends MoonrakerPluginService {
   public service: Service;
@@ -35,14 +36,14 @@ export class MoonrakerPrintControlsService extends MoonrakerPluginService {
   handleBrightnessGet() {
     return this.context.device.getPrintProgress()
       .then(data => {
-        return data ? data * 100
-          : 0;
+        return clamp(data ? data * 100
+          : 0, 0, 100);
       })
       .catch(handleError(this.context.log, this.context.config.moonrakerUrl, 0));
   }
 
   handleBrightnessSet(value) {
-    if(value === 0) {
+    if(value === 100) {
       this.context.device.cancelPrint()
         .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
           undefined));

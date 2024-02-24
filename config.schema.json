@@ -13,7 +13,6 @@
           "title": "Features",
           "type": "string",
           "enum": [
-            "Camera(s)",
             "Bed Thermostat",
             "Extruder Thermostat",
             "Print Progress",
@@ -30,6 +29,24 @@
         "items": {
           "type": "object",
           "properties": {
+            "manufacturer": {
+              "name": "Manufacturer",
+              "type": "string",
+              "placeholder": "Moonraker",
+              "description": "Set the manufacturer name for display in the Home app."
+            },
+            "model": {
+              "name": "Model",
+              "type": "string",
+              "placeholder": "3d Printer",
+              "description": "Set the model for display in the Home app."
+            },
+            "serialNumber": {
+              "name": "Serial Number",
+              "type": "string",
+              "placeholder": "SerialNumber",
+              "description": "Set the serial number for display in the Home app."
+            },
             "moonrakerUrl": {
               "required": true,
               "type": "string",
@@ -41,23 +58,58 @@
               "type": "string",
               "title": "Printer Name"
             },
-            "cameraUrls": {
-              "title": "Camera Url(s)",
-              "type": "array",
-              "items": {
-                "type": "string",
-                "title": "Camera URL",
-                "description": "The RTP stream URL(s) for your 3D printer."
-              }
+            "maxBedHeaterTemp": {
+              "required": true,
+              "type": "number",
+              "default": 120,
+              "title": "Max Bed Heater Temp (C)"
+            },
+            "maxExtruderHeaterTemp": {
+              "required": true,
+              "type": "number",
+              "default": 300,
+              "title": "Max Extruder Heater Temp (C)"
+            },
+            "notifyCamerToRecordUrl": {
+              "title": "Camera Cancel Recording URL",
+              "type": "string",
+              "description": "The camera recording url to trigger when a print is canceled (e.g. for homebridge-camera-ui this would something like http://localhost:8123/motion?My+Camera)"
             },
             "temperatureSensors": {
               "title": "Temperature Sensor(s)",
               "type": "array",
               "items": {
-                "type": "string",
-                "title": "Temperature Sensor Name",
-                "default": "chamber",
-                "description": "The temperature sensor(s) to monitor (usually just chamber)."
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "required": true,
+                    "title": "Temperature Sensor Name",
+                    "default": "Chamber",
+                    "description": "The temperature sensor(s) to monitor (usually just chamber)."
+                  },
+                  "moonrakerName": {
+                    "type": "string",
+                    "required": true,
+                    "title": "Moonraker Name",
+                    "default": "chamber",
+                    "description": "The name for the sensor for Moonraker API calls (usually the sensor name inside the klipper printer.cfg file)."
+                  },
+                  "minTemp": {
+                    "type": "number",
+                    "required": true,
+                    "default": 0,
+                    "title": "Min Temperature (C)",
+                    "description": "The min temperature in celsius to be measured by the sensor."
+                  },
+                  "maxTemp": {
+                    "type": "number",
+                    "required": true,
+                    "default": 100,
+                    "title": "Max Temperature (C)",
+                    "description": "The max temperature in celsius to be measured by the sensor."
+                  }
+                }
               }
             }
           }

@@ -9,6 +9,7 @@ import { HomebridgeMoonrakerPlatform } from '../platform';
 import { MoonrakerProgressService } from '../handler/moonrakerProgressSensor';
 import { MoonrakerPrintControlsService } from '../handler/moonrakerPrintControls';
 import { MoonrakerNotificationService } from '../handler/moonrakerNotificationService';
+import { MoonrakerTemperatureService } from '../handler/moonrakerTemperatureService';
 
 export class MoonrakerPrinterAccessory {
   services: MoonrakerPluginService[] = [];
@@ -21,10 +22,13 @@ export class MoonrakerPrinterAccessory {
     private readonly features: Feature[],
     private readonly device: MoonrakerClient) {
 
-    this.accessory.getService(this.platform.Service.AccessoryInformation)!
-      .setCharacteristic(this.platform.Characteristic.Manufacturer, 'Unknown-Manufacturer')
-      .setCharacteristic(this.platform.Characteristic.Model, 'Unknown-Model')
-      .setCharacteristic(this.platform.Characteristic.SerialNumber, 'Unknown-Serial');
+    const accessoryInfoService = this.accessory.getService(this.platform.Service.AccessoryInformation)
+    || this.accessory.addService(this.platform.Service.AccessoryInformation);
+
+    accessoryInfoService
+      .setCharacteristic(this.platform.Characteristic.Manufacturer, config.manufacturer)
+      .setCharacteristic(this.platform.Characteristic.Model, config.model)
+      .setCharacteristic(this.platform.Characteristic.SerialNumber, config.serialNumber);
 
     this.log = log;
     this.features = features;
@@ -56,6 +60,10 @@ export class MoonrakerPrinterAccessory {
 
     if (this.hasFeature(Feature.Notifications)) {
       this.services.push(new MoonrakerNotificationService(Feature.Notifications, context));
+    }
+
+    if (this.hasFeature(Feature.TemperatureSensors)) {
+      this.services.push(new MoonrakerTemperatureService(context));
     }
   }
 

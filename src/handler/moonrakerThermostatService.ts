@@ -1,4 +1,4 @@
-import { Characteristic, Formats, Perms, Service, Units } from 'homebridge';
+import { Characteristic, Service } from 'homebridge';
 import { MoonrakerPluginServiceContext } from '../model/serviceContext';
 import { MoonrakerPluginService } from './moonrakerPluginService';
 import type { CharacteristicValue } from 'homebridge';
@@ -36,9 +36,9 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
 
     const service = accessory.getService(name)
         || accessory.addService(platform.Service.Thermostat, name, name);
-    const minValue: number = this.type === ThermostatType.BedHeater ? 60 : 150;
     const stepSize: number = this.type === ThermostatType.BedHeater ? 5 : 10;
-    const maxValue: number = this.type === ThermostatType.BedHeater ? 120 : 350;
+    const maxValue: number = this.type === ThermostatType.BedHeater
+      ? this.context.config.maxBedHeaterTemp : this.context.config.maxExtruderHeaterTemp;
 
     if(this.type === ThermostatType.Extruder) {
       device.subscribeToPrinterObjectStatusWithListener(
@@ -82,7 +82,7 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
     service
       .getCharacteristic(this.Characteristic.TargetTemperature)
       .setProps({
-        minValue: minValue,
+        minValue: 0,
         maxValue: maxValue,
         minStep: stepSize,
       })

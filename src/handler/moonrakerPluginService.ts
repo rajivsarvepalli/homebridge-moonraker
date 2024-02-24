@@ -5,7 +5,7 @@ import { MoonrakerPluginServiceContext } from '../model/serviceContext';
 
 export abstract class MoonrakerPluginService {
   protected context: MoonrakerPluginServiceContext;
-    public abstract service: Service;
+    public abstract service: Service | undefined;
 
     constructor(context: MoonrakerPluginServiceContext) {
       this.context = context;
