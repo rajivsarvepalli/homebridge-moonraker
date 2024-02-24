@@ -14,8 +14,6 @@ export enum ThermostatType {
     Extruder,
 }
 
-// https://github.com/phenotypic/homebridge-web-thermostat/blob/master/index.js
-
 export class MoonrakerThermostatService extends MoonrakerPluginService {
   public service: Service;
   protected state: ThermostatState;
