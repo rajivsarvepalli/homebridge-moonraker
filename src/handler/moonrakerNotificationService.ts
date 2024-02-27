@@ -77,6 +77,8 @@ export class MoonrakerNotificationService extends MoonrakerPluginService {
 
   handleUpdateStateNotification(event) {
     this.context.log.debug('Handle state update event: %O', event);
+
+    // Make a callback in case notifications come out of order
     if (event?.objectNotification?.print_stats?.state === 'canceled') {
       this.state.canceled = true;
       const notifyCameraUrl = this.context.config.notifyCameraToRecordUrl;

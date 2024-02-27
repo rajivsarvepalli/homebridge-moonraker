@@ -231,11 +231,27 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
 
   handleUpdateTargetTemperature(event) {
     this.context.log.debug('Handle target temperature update event:', event);
+    // Make a callback on a notification to get the most recent data
     if (this.type === ThermostatType.Extruder) {
-      this.state.targetTemperature = event.objectNotification?.extruder?.target ?? 0;
-
+      return this.context.device.httpRequest({
+        url: '/printer/objects/query',
+        params: {
+          extruder: ['target'],
+        },
+      }).catch(handleError(this.context.log, this.context.config.moonrakerUrl, 0))
+        .then(data => {
+          return data?.result?.status?.extruder?.target ?? 0;
+        });
     } else {
-      this.state.targetTemperature = event.objectNotification?.heater_bed?.target ?? 0;
+      return this.context.device.httpRequest({
+        url: '/printer/objects/query',
+        params: {
+          bed: ['target'],
+        },
+      }).catch(handleError(this.context.log, this.context.config.moonrakerUrl, 0))
+        .then(data => {
+          return data?.result?.status?.bed?.target ?? 0;
+        });
     }
   }
 
