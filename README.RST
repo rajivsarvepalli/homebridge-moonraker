@@ -7,7 +7,7 @@
 
 
 🏠 Homebridge Moonraker
-------------------
+------------------------
 
 Homebridge Moonraker is a Homebridge plugin designed to enable HomeKit integrations (Apple Home)
 with Moonraker-enabled 3d printers. Moonraker_ is a web server developed for the
@@ -31,7 +31,7 @@ to notify Camera.UI to trigger recordings for printer failures.
 
 .. _documentation-header:
 📚 Documentation
----------------------
+------------------------
 Refer to the :ref:`📚 Documentation <documentation-header>` section to understand how to install and configure this library.
 
 The following features are available via accessories (each one is opted into via the plugin configuration):
@@ -55,26 +55,26 @@ The following features are available via accessories (each one is opted into via
   * Setting the light brightness cancels the print (analogous to forcing completion of a print since brightness represents print progress).
 
 📦 Installing
-----------
+------------------------
 If you are new to Homebridge, please first read the Homebridge_ `documentation <https://github.com/homebridge/homebridge/wiki>`_ and installation instructions before proceeding.
 
 If you have installed the Homebridge Config UI_, you can install this plugin by going to the `Plugins` tab and searching for `homebridge-moonraker` and installing it. Configuration is available via that same UI post-installation.
 
 👷 Contributing
-------------
+------------------------
 
 Contributions are welcome.
 To learn more, see the `Contributor Guide`_.
 
 
 📕 License
--------
+------------------------
 
 Distributed under the terms of the APACHE_ license.
 
 
 💥 Issues
-------
+------------------------
 
 If you encounter any issues or problems,
 please `file an issue`_ along with a detailed description.
