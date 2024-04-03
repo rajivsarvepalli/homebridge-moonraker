@@ -29,7 +29,7 @@ to notify Camera.UI to trigger recordings for printer failures.
 
 ### :books: Documentation
 
-Refer to the [:package: Installing](#installing) section to understand how to install and configure this library.
+Refer to the [:package: Installing](#package-installing) section to understand how to install and configure this library.
 
 The following features are available via accessories (each one is opted into via the plugin configuration):
 
