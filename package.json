@@ -2,7 +2,7 @@
   "private": false,
   "displayName": "Homebridge Moonraker Plugin",
   "name": "homebridge-moonraker",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A Homebridge plugin that integrates with moonraker.",
   "license": "Apache-2.0",
   "repository": {
@@ -24,7 +24,11 @@
     "prepublishOnly": "npm run lint && npm run build"
   },
   "keywords": [
-    "homebridge-plugin"
+    "homebridge-plugin",
+    "moonraker",
+    "klipper",
+    "3d printing",
+    "smart 3d printing"
   ],
   "dependencies": {
     "axios": "^1.6.7",
