@@ -7,6 +7,7 @@ export enum Feature {
   PrintProgress = 'Print Progress',
   PrintingControls = 'Print Controls',
   Notifications = 'Notifications',
+  TemperatureSensors = 'Temperature Sensor(s)',
 }
 
 export interface HomebridgeMoonrakerConfig {
