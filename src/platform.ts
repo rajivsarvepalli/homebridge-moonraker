@@ -57,7 +57,6 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
    * must not be registered again to prevent "duplicate UUID" errors.
    */
   private async discoverDevices() {
-
     const printers = this.config.printers;
     // loop over the discovered devices and register each one if it has not already been registered
 
