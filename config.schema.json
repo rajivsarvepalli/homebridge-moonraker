@@ -6,6 +6,12 @@
   "schema": {
     "type": "object",
     "properties": {
+      "name": {
+        "title": "Name",
+        "type": "string",
+        "default": "Homebridge Moonraker",
+        "required": true
+      },
       "features": {
         "title": "Enabled Features",
         "type": "array",
