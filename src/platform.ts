@@ -35,7 +35,7 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
       this.homebridgeMoonrakerConfig = HomebridgeMoonrakerConfigSchema.parse(config);
     } catch (e) {
       if (e instanceof ZodError) {
-        this.log.error(`Config is invalid. ${e.message}`);
+        this.log.error(`Config is invalid. ${e.issues}`);
       } else if (e instanceof Error) {
         this.log.error(`Unexpected error occured. See error message: ${e.message}`);
       } else {
