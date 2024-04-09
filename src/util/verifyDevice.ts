@@ -6,7 +6,7 @@ export async function verifyDeviceConnection(log: Logger, device: MoonrakerClien
     .then((data) => {
       return data !== undefined && data !== null;
     }).catch((e: unknown) => {
-      log.error('Device was unable to connect with url: %s with error: %O', device.config.moonrakerUrl);
+      log.error('Device was unable to connect with url: %s', device.config.moonrakerUrl);
       log.debug('Device connection failed with error: %O', e);
       return false;
     });

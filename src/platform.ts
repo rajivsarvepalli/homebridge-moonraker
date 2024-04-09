@@ -1,11 +1,12 @@
 import { API, DynamicPlatformPlugin, Logger, PlatformAccessory, PlatformConfig, Service, Characteristic } from 'homebridge';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
-import { HomebridgeMoonrakerConfig } from './model/config/config';
+import { HomebridgeMoonrakerConfig, HomebridgeMoonrakerConfigSchema } from './model/config/config';
 import { MoonrakerPrinterAccessory } from './accessories/printerAccessory';
 import { MoonrakerClient } from 'moonraker-client';
 import { verifyDeviceConnection } from './util/verifyDevice';
 import { isUniquePrinterNames } from './validator/validateConfig';
+import { ZodError } from 'zod';
 
 /**
  * HomebridgePlatform
@@ -18,16 +19,35 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
 
   // this is used to track restored cached accessories
   public readonly accessories: PlatformAccessory[] = [];
-  private homebridgeMoonrakerConfig: HomebridgeMoonrakerConfig;
+  private homebridgeMoonrakerConfig: HomebridgeMoonrakerConfig | undefined;
 
   constructor(
     public readonly log: Logger,
     public readonly config: PlatformConfig,
     public readonly api: API,
   ) {
+    // only load if configured
+    if (!config) {
+      return;
+    }
+
+    try {
+      this.homebridgeMoonrakerConfig = HomebridgeMoonrakerConfigSchema.parse(config);
+    } catch (e) {
+      if (e instanceof ZodError) {
+        this.log.error(`Config is invalid. ${e.message}`);
+      } else if (e instanceof Error) {
+        this.log.error(`Unexpected error occured. See error message: ${e.message}`);
+      } else {
+        this.log.error(`Unexpected error occured. See error: ${JSON.stringify(e)}`);
+      }
+
+      this.log.debug('Config error occured. Error: %O', e);
+      return;
+    }
+
     this.log.debug('Finished initializing platform:', this.config.name);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.homebridgeMoonrakerConfig = config as any;
+
 
     // When this event is fired it means Homebridge has restored all cached accessories from disk.
     // Dynamic Platform plugins should only register new accessories after this event was fired,
@@ -57,52 +77,62 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
    * must not be registered again to prevent "duplicate UUID" errors.
    */
   private async discoverDevices() {
-    const printers = this.config.printers;
-    // loop over the discovered devices and register each one if it has not already been registered
+    try {
+      const printers = this.config.printers;
+      // loop over the discovered devices and register each one if it has not already been registered
 
-    if (!isUniquePrinterNames(printers)) {
-      const printerNames = printers.map(printerConfig => {
-        return printerConfig.name;
-      });
-      this.log.error('Printer names are not unique in provided input see names: %O.\n' +
-      ' This plugin will not add any printers until the config is corrected', printerNames);
-      return;
-    }
-
-    for (const printer of printers) {
-
-      const device = new MoonrakerClient({
-        moonrakerUrl: printer.moonrakerUrl,
-        httpTimeout: 5000,
-      });
-      const isPrinterUp = await verifyDeviceConnection(this.log, device);
-
-      if(isPrinterUp) {
-        this.log.info('Succesfully connected to printer with url: %s', device.config.moonrakerUrl);
-
-        // generate a unique id for the accessory this should be generated from
-        // something globally unique, but constant, for example, the device serial
-        // number or MAC address
-        const uuid = this.api.hap.uuid.generate(printer.name);
-
-        const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
-
-        if (existingAccessory) {
-          // the accessory already exists
-          this.log.info('Restoring existing accessory from cache: %s', existingAccessory.displayName);
-          new MoonrakerPrinterAccessory(this, existingAccessory, this.log, printer, this.homebridgeMoonrakerConfig.features, device);
-        } else {
-          // register the accessory
-          this.log.info('Adding new accessory: %s', printer.name);
-          const accessory = new this.api.platformAccessory(printer.name, uuid);
-
-          this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
-
-          new MoonrakerPrinterAccessory(this, accessory, this.log, printer, this.homebridgeMoonrakerConfig.features, device);
-        }
-      } else {
-        this.log.error('Failed to connect to printer with url: %s; skipped registering this printer', device.config.moonrakerUrl);
+      if (!isUniquePrinterNames(printers)) {
+        const printerNames = printers.map(printerConfig => {
+          return printerConfig.name;
+        });
+        this.log.error('Printer names are not unique in provided input see names: %O.\n' +
+        ' This plugin will not add any printers until the config is corrected', printerNames);
+        return;
       }
+
+      for (const printer of printers) {
+
+        const device = new MoonrakerClient({
+          moonrakerUrl: printer.moonrakerUrl,
+          httpTimeout: 5000,
+        });
+        const isPrinterUp = await verifyDeviceConnection(this.log, device);
+
+        if(isPrinterUp) {
+          this.log.info('Succesfully connected to printer with url: %s', device.config.moonrakerUrl);
+
+          // generate a unique id for the accessory this should be generated from
+          // something globally unique, but constant, for example, the device serial
+          // number or MAC address
+          const uuid = this.api.hap.uuid.generate(printer.name);
+
+          const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
+
+          if (existingAccessory) {
+            // the accessory already exists
+            this.log.info('Restoring existing accessory from cache: %s', existingAccessory.displayName);
+            new MoonrakerPrinterAccessory(this, existingAccessory, this.log, printer, this.homebridgeMoonrakerConfig!.features, device);
+          } else {
+            // register the accessory
+            this.log.info('Adding new accessory: %s', printer.name);
+            const accessory = new this.api.platformAccessory(printer.name, uuid);
+
+            this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+
+            new MoonrakerPrinterAccessory(this, accessory, this.log, printer, this.homebridgeMoonrakerConfig!.features, device);
+          }
+        } else {
+          this.log.error('Failed to connect to printer with url: %s; skipped registering this printer', device.config.moonrakerUrl);
+        }
+      }
+    } catch (e) {
+      if (e instanceof Error) {
+        this.log.error(`Unexpected error occured. See error message: ${e.message}`);
+      } else {
+        this.log.error(`Unexpected error occured. See error: ${JSON.stringify(e)}`);
+      }
+
+      this.log.debug('Unexpected error occured. Error: %O', e);
     }
   }
 }

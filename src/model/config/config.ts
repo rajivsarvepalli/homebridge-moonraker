@@ -1,4 +1,5 @@
-import { PrinterConfig } from './printerConfig';
+import { PrinterObjectSchema } from './printerConfig';
+import { z } from 'zod';
 
 export enum Feature {
   Camera = 'Camera(s)',
@@ -10,7 +11,9 @@ export enum Feature {
   TemperatureSensors = 'Temperature Sensor(s)',
 }
 
-export interface HomebridgeMoonrakerConfig {
-  features: Feature[];
-  printers: PrinterConfig[];
-}
+export const HomebridgeMoonrakerConfigSchema = z.object({
+  features: z.array(z.nativeEnum(Feature)).nonempty(),
+  printers: z.array(PrinterObjectSchema).nonempty(),
+});
+
+export type HomebridgeMoonrakerConfig = z.infer<typeof HomebridgeMoonrakerConfigSchema>;
