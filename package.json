@@ -2,7 +2,7 @@
   "private": false,
   "displayName": "Homebridge Moonraker Plugin",
   "name": "homebridge-moonraker",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A Homebridge plugin that integrates with moonraker.",
   "license": "Apache-2.0",
   "repository": {

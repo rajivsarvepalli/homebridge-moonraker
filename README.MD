@@ -6,6 +6,10 @@
 # homebridge-moonraker
 Homebridge plugin to control [Moonraker](https://moonraker.readthedocs.io/) enabled 3D printers
 
+[![npm](https://img.shields.io/npm/v/homebridge-moonraker/latest?label=latest)](https://www.npmjs.com/package/homebridge-moonraker)
+[![npm](https://img.shields.io/npm/dt/homebridge-moonraker)](https://www.npmjs.com/package/homebridge-moonraker)
+[![build status](https://github.com/rajivsarvepalli/homebridge-moonraker/actions/workflows/build.yml/badge.svg)](https://github.com/rajivsarvepalli/homebridge-moonraker/actions/workflows/build.yml)
+
 </span>
 
 ### :house: Homebridge Moonraker
