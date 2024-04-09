@@ -41,6 +41,8 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
       } else {
         this.log.error(`Unexpected error occured. See error: ${JSON.stringify(e)}`);
       }
+
+      this.log.debug('Config error occured. Error: %O', e);
       return;
     }
 
