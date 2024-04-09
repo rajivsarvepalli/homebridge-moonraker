@@ -6,6 +6,7 @@ import { MoonrakerPrinterAccessory } from './accessories/printerAccessory';
 import { MoonrakerClient } from 'moonraker-client';
 import { verifyDeviceConnection } from './util/verifyDevice';
 import { isUniquePrinterNames } from './validator/validateConfig';
+import { ZodError } from 'zod';
 
 /**
  * HomebridgePlatform
@@ -31,10 +32,15 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
     }
 
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.homebridgeMoonrakerConfig = HomebridgeMoonrakerConfigSchema.parse(config);
     } catch (e) {
-      this.log.error(`Config is invalid. See error: ${JSON.stringify(e)}`);
+      if (e instanceof ZodError) {
+        this.log.error(`Config is invalid. ${e.message}`);
+      } else if (e instanceof Error) {
+        this.log.error(`Unexpected error occured. See error message: ${e.message}`);
+      } else {
+        this.log.error(`Unexpected error occured. See error: ${JSON.stringify(e)}`);
+      }
       return;
     }
 
@@ -118,7 +124,11 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
         }
       }
     } catch (e) {
-      this.log.error(`Failed to discover printer(s), Error: ${JSON.stringify(e)}`);
+      if (e instanceof Error) {
+        this.log.error(`Unexpected error occured. See error message: ${e.message}`);
+      } else {
+        this.log.error(`Unexpected error occured. See error: ${JSON.stringify(e)}`);
+      }
     }
   }
 }
