@@ -56,7 +56,7 @@ If you have installed the [Homebridge Config UI](https://github.com/homebridge/h
 ### :construction_worker: Contributing
 
 Contributions are welcome.
-To learn more, see the [Contributor Guide]().
+Please open a [PR](https://github.com/rajivsarvepalli/homebridge-moonraker/pulls) or an [issue](https://github.com/rajivsarvepalli/homebridge-moonraker/issues) to discuss further.
 
 
 ### :closed_book: License
