@@ -34,7 +34,7 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       this.homebridgeMoonrakerConfig = HomebridgeMoonrakerConfigSchema.parse(config);
     } catch (e) {
-      this.log.error(`Config is invalid. See error: ${e}`);
+      this.log.error(`Config is invalid. See error: ${JSON.stringify(e)}`);
       return;
     }
 
@@ -118,7 +118,7 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
         }
       }
     } catch (e) {
-      this.log.error(`Failed to discover printer(s), Error: ${e}`);
+      this.log.error(`Failed to discover printer(s), Error: ${JSON.stringify(e)}`);
     }
   }
 }
