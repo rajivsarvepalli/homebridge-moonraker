@@ -9,7 +9,7 @@ Homebridge plugin to control [Moonraker](https://moonraker.readthedocs.io/) enab
 [![npm](https://img.shields.io/npm/v/homebridge-moonraker/latest?label=latest)](https://www.npmjs.com/package/homebridge-moonraker)
 [![npm](https://img.shields.io/npm/dt/homebridge-moonraker)](https://www.npmjs.com/package/homebridge-moonraker)
 [![build status](https://github.com/rajivsarvepalli/homebridge-moonraker/actions/workflows/build.yml/badge.svg)](https://github.com/rajivsarvepalli/homebridge-moonraker/actions/workflows/build.yml)
-
+[![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
 </span>
 
 ### :house: Homebridge Moonraker
