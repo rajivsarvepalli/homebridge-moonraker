@@ -12,6 +12,9 @@ Homebridge plugin to control [Moonraker](https://moonraker.readthedocs.io/) enab
 [![verified-by-homebridge](https://badgen.net/badge/homebridge/verified/purple)](https://github.com/homebridge/homebridge/wiki/Verified-Plugins)
 </span>
 
+
+<span align="left">
+
 ### :house: Homebridge Moonraker
 
 Homebridge Moonraker is a Homebridge plugin designed to enable HomeKit integrations (Apple Home)
@@ -68,3 +71,6 @@ Distributed under the terms of the [APACHE](https://www.apache.org/licenses/LICE
 
 If you encounter any issues or problems,
 please [file an issue](https://github.com/rajivsarvepalli/homebridge-moonraker/issues) along with a detailed description.
+
+</span>
+
