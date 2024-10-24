@@ -48,7 +48,7 @@ The following features are available via accessories (each one is opted into via
 * A light for print controls where the following is true:
   * Light brightness represents print progress.
   * Turning the light off pauses the print.
-  * Setting the light brightness cancels the print (analogous to forcing completion of a print since brightness represents print progress).
+  * Setting the light brightness to 100% cancels the print (analogous to forcing completion of a print since brightness represents print progress).
 
 
 ### :package: Installing
