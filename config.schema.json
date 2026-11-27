@@ -80,7 +80,6 @@
               "maxLength": 255
             },
             "maxBedHeaterTemp": {
-              "required": true,
               "type": "number",
               "default": 120,
               "condition": {
@@ -91,7 +90,6 @@
               "maximum": 500
             },
             "maxExtruderHeaterTemp": {
-              "required": true,
               "condition": {
                 "functionBody": "return model.features && model.features.includes('Extruder Thermostat');"
               },
@@ -102,12 +100,12 @@
               "maximum": 1000
             },
             "notifyCameraToRecordUrl": {
-              "title": "Camera Cancel Recording URL",
+              "title": "Camera Recording URL",
               "condition": {
                 "functionBody": "return model.features && model.features.includes('Notifications');"
               },
               "type": "string",
-              "description": "The camera recording url to trigger when a print is canceled (e.g. for homebridge-camera-ui this would typically look like http://localhost:8123/motion?My+Camera+Name)",
+              "description": "The camera recording url to trigger when a print is canceled or errors (e.g. for homebridge-camera-ui this would typically look like http://localhost:8123/motion?My+Camera+Name)",
               "minLength": 1,
               "maxLength": 1000
             },

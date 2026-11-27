@@ -48,7 +48,7 @@ The following features are available via accessories (each one is opted into via
 * A light for print controls where the following is true:
   * Light brightness represents print progress.
   * Turning the light off pauses the print.
-  * Setting the light brightness cancels the print (analogous to forcing completion of a print since brightness represents print progress).
+  * Setting the light brightness to 100% cancels the print (analogous to forcing completion of a print since brightness represents print progress).
 
 
 ### :package: Installing
@@ -60,6 +60,15 @@ If you have installed the [Homebridge Config UI](https://github.com/homebridge/h
 
 Contributions are welcome.
 Please open a [PR](https://github.com/rajivsarvepalli/homebridge-moonraker/pulls) or an [issue](https://github.com/rajivsarvepalli/homebridge-moonraker/issues) to discuss further.
+
+To run the checks locally:
+
+```sh
+npm install
+npm run lint
+npm run build
+npm test
+```
 
 
 ### :closed_book: License

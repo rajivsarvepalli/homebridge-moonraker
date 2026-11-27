@@ -30,12 +30,9 @@ export class MoonrakerPrinterAccessory {
       .setCharacteristic(this.platform.Characteristic.Model, config.model ?? '3d Printer')
       .setCharacteristic(this.platform.Characteristic.SerialNumber, config.serialNumber ?? 'Unknown');
 
-    this.log = log;
-    this.features = features;
-
     const context: MoonrakerPluginServiceContext = {
       log: this.log,
-      accessory: accessory,
+      accessory: this.accessory,
       config: this.config,
       features: this.features,
       device: this.device,

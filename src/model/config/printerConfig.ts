@@ -5,18 +5,22 @@ const TemperatureSensorSchema = z.object({
   moonrakerName: z.string().min(1).max(255),
   minTemp: z.number().gt(-1000).lt(1000).int(),
   maxTemp: z.number().gt(-1000).lt(1000).int(),
+}).refine(sensor => sensor.maxTemp > sensor.minTemp, {
+  message: 'maxTemp must be greater than minTemp',
 });
 
 export const PrinterObjectSchema = z.object({
   moonrakerUrl: z.string().url(),
   name: z.string().min(1).max(255),
   notifyCameraToRecordUrl:  z.string().url().optional(),
-  temperatureSensors: z.array(TemperatureSensorSchema),
+  // Features are opt-in, so every feature-specific setting is optional and
+  // falls back to a sensible default when the feature is disabled.
+  temperatureSensors: z.array(TemperatureSensorSchema).default([]),
   manufacturer: z.string().min(1).max(255).optional(),
   model: z.string().min(1).max(255).optional(),
   serialNumber: z.string().min(1).max(255).optional(),
-  maxBedHeaterTemp: z.number().gt(1).lt(500).int(),
-  maxExtruderHeaterTemp: z.number().gt(1).lt(1000).int(),
+  maxBedHeaterTemp: z.number().gt(1).lt(500).int().default(120),
+  maxExtruderHeaterTemp: z.number().gt(1).lt(1000).int().default(300),
 });
 
 export type PrinterConfig = z.infer<typeof PrinterObjectSchema>;

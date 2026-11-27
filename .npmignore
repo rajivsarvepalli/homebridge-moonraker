@@ -1,6 +1,12 @@
 # Ignore source code
 src
 
+# Tests
+__tests__
+test
+jest.config.js
+coverage
+
 # ------------- Defaults ------------- #
 
 # gitHub actions
