@@ -2,6 +2,7 @@ import { Service, Characteristic } from 'homebridge';
 import { MoonrakerPluginServiceContext } from '../model/serviceContext';
 import { MoonrakerPluginService } from './moonrakerPluginService';
 import axios from 'axios';
+import { getPrinterObjectStatus, PrinterObjectNotification } from '../model/printerObjectNotification';
 
 interface NotificationState {
     canceled: boolean;
@@ -10,12 +11,15 @@ interface NotificationState {
 
 /**
  * Service to create notifications for moonraker 3d printer.
- * Currently just uses contact sensors to send notifications for when a print was canceled.
+ * Currently just uses contact sensors to send notifications for when a print was canceled or errored.
  */
 export class MoonrakerNotificationService extends MoonrakerPluginService {
   public service: Service;
   Characteristic: typeof Characteristic;
   state: NotificationState;
+
+  private readonly cancelService: Service;
+  private readonly errorService: Service;
 
   constructor(private readonly name: string, context: MoonrakerPluginServiceContext) {
     super(context);
@@ -46,6 +50,8 @@ export class MoonrakerNotificationService extends MoonrakerPluginService {
       .onGet(this.handleErrorContactSensorStateGet.bind(this));
 
     this.service = cancelService;
+    this.cancelService = cancelService;
+    this.errorService = errorService;
     this.state = {
       canceled: false,
       error: false,
@@ -64,40 +70,54 @@ export class MoonrakerNotificationService extends MoonrakerPluginService {
   handleCancelContactSensorStateGet() {
     this.context.log.debug('Triggered GET ContactSensorState');
 
-    return this.state.canceled ? this.Characteristic.ContactSensorState.CONTACT_DETECTED
-      : this.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
+    return this.contactSensorState(this.state.canceled);
   }
 
   handleErrorContactSensorStateGet() {
     this.context.log.debug('Triggered GET ContactSensorState');
 
-    return this.state.error ? this.Characteristic.ContactSensorState.CONTACT_DETECTED
-      : this.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
+    return this.contactSensorState(this.state.error);
   }
 
-  handleUpdateStateNotification(event) {
+  handleUpdateStateNotification(event: PrinterObjectNotification) {
     this.context.log.debug('Handle state update event: %O', event);
 
-    //TODO: Make a callback in case notifications come out of order
-    if (event?.objectNotification?.print_stats?.state === 'canceled') {
-      this.state.canceled = true;
+    const printState = getPrinterObjectStatus(event)?.print_stats?.state;
+    const canceled = printState === 'canceled';
+    const error = printState === 'error';
+
+    if (canceled === this.state.canceled && error === this.state.error) {
+      return;
+    }
+
+    this.state = {
+      error,
+      canceled,
+    };
+
+    this.cancelService.updateCharacteristic(
+      this.Characteristic.ContactSensorState, this.contactSensorState(this.state.canceled));
+    this.errorService.updateCharacteristic(
+      this.Characteristic.ContactSensorState, this.contactSensorState(this.state.error));
+
+    if (this.state.canceled || this.state.error) {
       const notifyCameraUrl = this.context.config.notifyCameraToRecordUrl;
       if (notifyCameraUrl) {
         axios.request({
           method: 'GET',
           url: notifyCameraUrl,
-        }).catch(() => {
+        }).catch((e: unknown) => {
+          this.context.log.debug('Unable to notify camera recording url: %s due to error: %O',
+            notifyCameraUrl, e);
           return;
         });
       }
-
-    } else if(event?.objectNotification?.print_stats?.state === 'error') {
-      this.state.error = true;
-    } else {
-      this.state = {
-        error: false,
-        canceled: false,
-      };
     }
+  }
+
+  private contactSensorState(active: boolean) {
+    return active
+      ? this.Characteristic.ContactSensorState.CONTACT_DETECTED
+      : this.Characteristic.ContactSensorState.CONTACT_NOT_DETECTED;
   }
 }

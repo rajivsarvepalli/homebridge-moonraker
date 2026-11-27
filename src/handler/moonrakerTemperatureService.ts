@@ -1,4 +1,5 @@
 import { Service, Characteristic } from 'homebridge';
+import type { CharacteristicValue } from 'homebridge';
 import { MoonrakerPluginServiceContext } from '../model/serviceContext';
 import { MoonrakerPluginService } from './moonrakerPluginService';
 import { handleError } from '../util/exceptionHandler';
@@ -35,16 +36,16 @@ export class MoonrakerTemperatureService extends MoonrakerPluginService {
   /**
    * Handle requests to get the current value of the "Current Temperature" characteristic
    */
-  handleCurrentTemperatureGet(sensorName: string, minTemp: number, maxTemp: number) {
+  async handleCurrentTemperatureGet(sensorName: string, minTemp: number, maxTemp: number): Promise<CharacteristicValue> {
     this.context.log.debug('Triggered GET CurrentTemperature');
 
+    const temperature = await this.context.device.getTemperatureForSensor(sensorName)
+      .catch(handleError(this.context.log, this.context.config.moonrakerUrl, undefined));
 
-    return clamp(this.context.device.getTemperatureForSensor(sensorName)
-      .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
-        0)), minTemp, maxTemp);
+    return clamp(temperature ?? 0, minTemp, maxTemp);
   }
 
-  async handleNameGet(sensorName) {
+  async handleNameGet(sensorName: string) {
     return sensorName;
   }
 }

@@ -19,7 +19,7 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
 
   // this is used to track restored cached accessories
   public readonly accessories: PlatformAccessory[] = [];
-  private homebridgeMoonrakerConfig: HomebridgeMoonrakerConfig | undefined;
+  private readonly homebridgeMoonrakerConfig: HomebridgeMoonrakerConfig | undefined;
 
   constructor(
     public readonly log: Logger,
@@ -48,7 +48,6 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
 
     this.log.debug('Finished initializing platform:', this.config.name);
 
-
     // When this event is fired it means Homebridge has restored all cached accessories from disk.
     // Dynamic Platform plugins should only register new accessories after this event was fired,
     // in order to ensure they weren't added to homebridge already. This event can also be used
@@ -72,14 +71,20 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
   }
 
   /**
-   * This is an example method showing how to register discovered accessories.
-   * Accessories must only be registered once, previously created accessories
-   * must not be registered again to prevent "duplicate UUID" errors.
+   * Discover printers from the plugin config and register one accessory per printer.
+   *
+   * Accessories are registered even if a printer is not reachable at Homebridge startup.
+   * Moonraker's websocket reconnects automatically, and every service tolerates failed
+   * requests, so the accessory will start working as soon as the printer comes online.
    */
   private async discoverDevices() {
     try {
-      const printers = this.config.printers;
-      // loop over the discovered devices and register each one if it has not already been registered
+      const pluginConfig = this.homebridgeMoonrakerConfig;
+      if (!pluginConfig) {
+        return;
+      }
+
+      const { printers, features } = pluginConfig;
 
       if (!isUniquePrinterNames(printers)) {
         const printerNames = printers.map(printerConfig => {
@@ -90,40 +95,60 @@ export class HomebridgeMoonrakerPlatform implements DynamicPlatformPlugin {
         return;
       }
 
+      const configuredUuids = new Set<string>();
+
       for (const printer of printers) {
+        const uuid = this.api.hap.uuid.generate(printer.name);
+        configuredUuids.add(uuid);
 
-        const device = new MoonrakerClient({
-          moonrakerUrl: printer.moonrakerUrl,
-          httpTimeout: 5000,
-        });
-        const isPrinterUp = await verifyDeviceConnection(this.log, device);
+        const device = new MoonrakerClient(
+          {
+            moonrakerUrl: printer.moonrakerUrl,
+            httpTimeout: 5000,
+          },
+          {
+            timeout: 5000,
+          },
+        );
 
-        if(isPrinterUp) {
-          this.log.info('Succesfully connected to printer with url: %s', device.config.moonrakerUrl);
+        // Probe connectivity in the background so a temporarily offline printer
+        // does not delay Homebridge startup. Accessories are registered
+        // regardless and will recover once the printer comes online.
+        verifyDeviceConnection(this.log, device)
+          .then(isPrinterUp => {
+            if (isPrinterUp) {
+              this.log.info('Successfully connected to printer with url: %s', device.config.moonrakerUrl);
+            } else {
+              this.log.warn('Printer with url: %s is not reachable yet; ' +
+              'the accessory will continue to retry in the background', device.config.moonrakerUrl);
+            }
+          })
+          .catch(e => {
+            this.log.debug('Unexpected error while checking printer connectivity: %O', e);
+          });
 
-          // generate a unique id for the accessory this should be generated from
-          // something globally unique, but constant, for example, the device serial
-          // number or MAC address
-          const uuid = this.api.hap.uuid.generate(printer.name);
+        const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
 
-          const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
-
-          if (existingAccessory) {
-            // the accessory already exists
-            this.log.info('Restoring existing accessory from cache: %s', existingAccessory.displayName);
-            new MoonrakerPrinterAccessory(this, existingAccessory, this.log, printer, this.homebridgeMoonrakerConfig!.features, device);
-          } else {
-            // register the accessory
-            this.log.info('Adding new accessory: %s', printer.name);
-            const accessory = new this.api.platformAccessory(printer.name, uuid);
-
-            this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
-
-            new MoonrakerPrinterAccessory(this, accessory, this.log, printer, this.homebridgeMoonrakerConfig!.features, device);
-          }
+        if (existingAccessory) {
+          // the accessory already exists
+          this.log.info('Restoring existing accessory from cache: %s', existingAccessory.displayName);
+          new MoonrakerPrinterAccessory(
+            this, existingAccessory, this.log, printer, features, device);
         } else {
-          this.log.error('Failed to connect to printer with url: %s; skipped registering this printer', device.config.moonrakerUrl);
+          // register the accessory
+          this.log.info('Adding new accessory: %s', printer.name);
+          const accessory = new this.api.platformAccessory(printer.name, uuid);
+
+          new MoonrakerPrinterAccessory(this, accessory, this.log, printer, features, device);
+          this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
         }
+      }
+
+      // Remove cached accessories for printers that are no longer configured.
+      const staleAccessories = this.accessories.filter(accessory => !configuredUuids.has(accessory.UUID));
+      if (staleAccessories.length > 0) {
+        this.log.info('Removing %d stale accessory/accessories from cache', staleAccessories.length);
+        this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, staleAccessories);
       }
     } catch (e) {
       if (e instanceof Error) {

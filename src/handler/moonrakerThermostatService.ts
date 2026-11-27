@@ -1,12 +1,12 @@
 import { Characteristic, Service } from 'homebridge';
+import type { CharacteristicValue } from 'homebridge';
 import { MoonrakerPluginServiceContext } from '../model/serviceContext';
 import { MoonrakerPluginService } from './moonrakerPluginService';
-import type { CharacteristicValue } from 'homebridge';
 import { handleError } from '../util/exceptionHandler';
+import { getPrinterObjectStatus, PrinterObjectNotification } from '../model/printerObjectNotification';
 
 interface ThermostatState {
     targetTemperature: number;
-    displayUnits: number;
 }
 
 export enum ThermostatType {
@@ -20,6 +20,11 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
   Characteristic: typeof Characteristic;
   type: ThermostatType;
 
+  private heatingMode: number;
+  private lastRequestedTemperature = 0;
+  private readonly printerObjectName: string;
+  private readonly maxTemperature: number;
+
   constructor(type: ThermostatType, private readonly name: string, context: MoonrakerPluginServiceContext) {
     super(context);
 
@@ -28,29 +33,26 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
     this.Characteristic = platform.Characteristic;
     this.state = {
       targetTemperature: 0,
-      displayUnits:  this.Characteristic.TemperatureDisplayUnits.CELSIUS,
     };
+    this.heatingMode = this.Characteristic.CurrentHeatingCoolingState.OFF;
     this.type = type;
+    this.printerObjectName = type === ThermostatType.Extruder ? 'extruder' : 'heater_bed';
+    this.maxTemperature = type === ThermostatType.BedHeater
+      ? context.config.maxBedHeaterTemp
+      : context.config.maxExtruderHeaterTemp;
+
+    const stepSize: number = this.type === ThermostatType.BedHeater ? 5 : 10;
+
+    // Subscribe to both the target and the measured temperature so HomeKit is
+    // updated in real time rather than only on a poll.
+    device.subscribeToPrinterObjectStatusWithListener(
+      {
+        [this.printerObjectName]: ['target', 'temperature'],
+      }, this.handlePrinterObjectUpdate.bind(this),
+    );
 
     const service = accessory.getService(name)
-        || accessory.addService(platform.Service.Thermostat, name, name);
-    const stepSize: number = this.type === ThermostatType.BedHeater ? 5 : 10;
-    const maxValue: number = this.type === ThermostatType.BedHeater
-      ? this.context.config.maxBedHeaterTemp : this.context.config.maxExtruderHeaterTemp;
-
-    if(this.type === ThermostatType.Extruder) {
-      device.subscribeToPrinterObjectStatusWithListener(
-        {
-          extruder: ['target'],
-        }, this.handleUpdateTargetTemperature.bind(this),
-      );
-    } else {
-      device.subscribeToPrinterObjectStatusWithListener(
-        {
-          heater_bed: ['target'],
-        }, this.handleUpdateTargetTemperature.bind(this),
-      );
-    }
+      || accessory.addService(platform.Service.Thermostat, name, name);
 
     service.getCharacteristic(this.Characteristic.Name)
       .onGet(this.handleNameGet.bind(this));
@@ -58,7 +60,7 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
     service.getCharacteristic(this.Characteristic.CurrentTemperature)
       .setProps({
         minValue: 0,
-        maxValue: maxValue,
+        maxValue: this.maxTemperature,
       })
       .onGet(this.handleCurrentTemperatureGet.bind(this));
 
@@ -81,31 +83,43 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
       .getCharacteristic(this.Characteristic.TargetTemperature)
       .setProps({
         minValue: 0,
-        maxValue: maxValue,
+        maxValue: this.maxTemperature,
         minStep: stepSize,
       })
       .onGet(this.handleTargetTemperatureGet.bind(this))
       .onSet(this.handleTargetTemperatureSet.bind(this));
 
+    // HomeKit temperature characteristics are always expressed in Celsius.
+    // HomeKit itself converts the value for display based on the user's locale,
+    // so this characteristic is reported as CELSIUS and should not be used to
+    // alter the values above.
     service.getCharacteristic(this.Characteristic.TemperatureDisplayUnits)
-      .onGet(this.handleTemperatureDisplayUnitsGet.bind(this))
-      .onSet(this.handleTemperatureDisplayUnitsSet.bind(this));
+      .onGet(this.handleTemperatureDisplayUnitsGet.bind(this));
 
     this.service = service;
+
+    // Seed HomeKit with known values so the accessory renders correctly even
+    // before the first websocket notification arrives.
+    this.updateThermostatCharacteristics();
   }
 
   /**
    * Handle requests to get the current value of the "Current Heating Cooling State" characteristic
    */
-  async handleCurrentHeatingCoolingStateGet() {
-    return this.isHeaterOn();
+  async handleCurrentHeatingCoolingStateGet(): Promise<CharacteristicValue> {
+    const targetTemperature = await this.getTargetTemperatureCelsius();
+
+    return this.getHeatingCoolingState(targetTemperature);
   }
 
   /**
    * Handle requests to get the current value of the "Target Heating Cooling State" characteristic
    */
-  async handleTargetHeatingCoolingStateGet() {
-    return this.isHeaterOn();
+  async handleTargetHeatingCoolingStateGet(): Promise<CharacteristicValue> {
+    const targetTemperature = await this.getTargetTemperatureCelsius();
+    this.heatingMode = this.getHeatingCoolingState(targetTemperature);
+
+    return this.heatingMode;
   }
 
   async handleNameGet() {
@@ -115,32 +129,35 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
   /**
    * Handle requests to set the "Target Heating Cooling State" characteristic
    */
-  async handleTargetHeatingCoolingStateSet(value) {
+  async handleTargetHeatingCoolingStateSet(value: CharacteristicValue) {
     this.context.log.debug('Triggered SET TargetHeatingCoolingState:', value);
 
-    switch(value) {
-      case this.Characteristic.CurrentHeatingCoolingState.OFF: {
-        if(this.type === ThermostatType.Extruder) {
-          return this.context.device.setExtruderTemperature(0)
-            .then(() => this.Characteristic.CurrentHeatingCoolingState.OFF)
-            .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
-              this.Characteristic.CurrentHeatingCoolingState.OFF));
-        }
+    if (value === this.Characteristic.CurrentHeatingCoolingState.OFF) {
+      this.heatingMode = this.Characteristic.CurrentHeatingCoolingState.OFF;
+      this.state.targetTemperature = 0;
+      await this.applyHeaterTarget(0);
+      this.updateThermostatCharacteristics();
 
-        return this.context.device.setBedTemperature(0)
-          .then(() => this.Characteristic.CurrentHeatingCoolingState.OFF)
-          .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
-            this.Characteristic.CurrentHeatingCoolingState.OFF));
-      }
-
-      case this.Characteristic.CurrentHeatingCoolingState.HEAT: {
-        return this.Characteristic.CurrentHeatingCoolingState.HEAT;
-      }
-
-      default: {
-        return;
-      }
+      return this.Characteristic.CurrentHeatingCoolingState.OFF;
     }
+
+    if (value === this.Characteristic.CurrentHeatingCoolingState.HEAT) {
+      this.heatingMode = this.Characteristic.CurrentHeatingCoolingState.HEAT;
+      // Restore the most recent non-zero target, if there is one. Turning the
+      // heater off zeroes the visible target, but the desired temperature should
+      // not be lost for the next time heating is enabled.
+      if (this.lastRequestedTemperature > 0) {
+        this.state.targetTemperature = this.lastRequestedTemperature;
+        await this.applyHeaterTarget(this.lastRequestedTemperature);
+      }
+      this.updateThermostatCharacteristics();
+
+      return this.Characteristic.CurrentHeatingCoolingState.HEAT;
+    }
+
+    this.context.log.warn('Unsupported value for TargetHeatingCoolingState: %s', value);
+
+    return this.heatingMode;
   }
 
   async handleCurrentTemperatureGet(): Promise<CharacteristicValue> {
@@ -148,67 +165,37 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
 
     const data = await this.context.device.getOctoprintPrinterData()
       .catch(handleError(this.context.log, this.context.config.moonrakerUrl, undefined));
-    let heaterTemp = data?.temperature?.tool0.actual;
-    if (this.type === ThermostatType.BedHeater) {
-      heaterTemp = data?.temperature?.bed.actual;
-    }
 
-    if (heaterTemp && this.isFahrenheit()) {
-      heaterTemp = this.celsiusToFahrenheit(heaterTemp);
-    }
+    const actualTemperature = this.type === ThermostatType.BedHeater
+      ? data?.temperature?.bed?.actual
+      : data?.temperature?.tool0?.actual;
 
-    return heaterTemp ?? 0;
-  }
-
-  private async isHeaterOn(): Promise<CharacteristicValue> {
-    const currentValue = this.context.device.getOctoprintPrinterData()
-      .then(data => {
-
-        let heaterTemp = data?.temperature?.tool0.target;
-
-        if (this.type === ThermostatType.BedHeater) {
-          heaterTemp = data?.temperature?.bed.target;
-        }
-
-        const isHeaterOn = heaterTemp ?? 0 > 0;
-
-        return isHeaterOn ? this.Characteristic.CurrentHeatingCoolingState.HEAT
-          : this.Characteristic.CurrentHeatingCoolingState.OFF;
-      })
-      .catch(handleError(this.context.log, this.context.config.moonrakerUrl,
-        this.Characteristic.CurrentHeatingCoolingState.OFF));
-
-    return currentValue;
+    return actualTemperature ?? 0;
   }
 
   /**
    * Handle requests to get the current value of the "Target Temperature" characteristic
    */
-  async handleTargetTemperatureGet() {
-    let temp = this.state.targetTemperature;
-
-    if (this.isFahrenheit()) {
-      temp = this.celsiusToFahrenheit(temp);
-    }
-
-    return temp;
+  async handleTargetTemperatureGet(): Promise<CharacteristicValue> {
+    return this.getTargetTemperatureCelsius();
   }
 
   /**
    * Handle requests to set the "Target Temperature" characteristic
    */
-  async handleTargetTemperatureSet(value) {
-    if(this.isFahrenheit()) {
-      value = this.fahrenheitToCelsius(value);
-    }
+  async handleTargetTemperatureSet(value: CharacteristicValue) {
+    const celsius = Number(value);
 
-    if( this.type === ThermostatType.BedHeater) {
-      await this.context.device.setBedTemperature(value)
-        .catch(handleError(this.context.log, this.context.config.moonrakerUrl, undefined));
-    } else {
-      await this.context.device.setExtruderTemperature(value)
-        .catch(handleError(this.context.log, this.context.config.moonrakerUrl, undefined));
+    this.state.targetTemperature = celsius;
+    if (celsius > 0) {
+      this.lastRequestedTemperature = celsius;
     }
+    this.heatingMode = this.getHeatingCoolingState(celsius);
+
+    await this.applyHeaterTarget(celsius);
+    this.updateThermostatCharacteristics();
+
+    return celsius;
   }
 
   /**
@@ -217,53 +204,78 @@ export class MoonrakerThermostatService extends MoonrakerPluginService {
   handleTemperatureDisplayUnitsGet() {
     this.context.log.debug('Triggered GET TemperatureDisplayUnits');
 
-    return this.state.displayUnits;
+    return this.Characteristic.TemperatureDisplayUnits.CELSIUS;
   }
 
-  /**
-   * Handle requests to set the "Temperature Display Units" characteristic
-   */
-  handleTemperatureDisplayUnitsSet(value) {
-    this.context.log.debug('Triggered SET TemperatureDisplayUnits:', value);
+  private handlePrinterObjectUpdate(event: PrinterObjectNotification) {
+    this.context.log.debug('Handle printer object update event: %O', event);
 
-    this.state.displayUnits = value;
-  }
+    const printerObject = getPrinterObjectStatus(event)?.[this.printerObjectName];
+    if (!printerObject) {
+      return;
+    }
 
-  handleUpdateTargetTemperature(event) {
-    this.context.log.debug('Handle target temperature update event:', event);
-    //TODO: Make a callback on a notification to get the most recent data
-    if (this.type === ThermostatType.Extruder) {
-      return this.context.device.httpRequest({
-        url: '/printer/objects/query',
-        params: {
-          extruder: ['target'],
-        },
-      }).catch(handleError(this.context.log, this.context.config.moonrakerUrl, 0))
-        .then(data => {
-          return data?.result?.status?.extruder?.target ?? 0;
-        });
-    } else {
-      return this.context.device.httpRequest({
-        url: '/printer/objects/query',
-        params: {
-          bed: ['target'],
-        },
-      }).catch(handleError(this.context.log, this.context.config.moonrakerUrl, 0))
-        .then(data => {
-          return data?.result?.status?.bed?.target ?? 0;
-        });
+    if (typeof printerObject.target === 'number') {
+      this.state.targetTemperature = printerObject.target;
+      if (printerObject.target > 0) {
+        this.lastRequestedTemperature = printerObject.target;
+      }
+      this.heatingMode = this.getHeatingCoolingState(printerObject.target);
+
+      this.service.updateCharacteristic(
+        this.Characteristic.TargetHeatingCoolingState, this.heatingMode);
+      this.service.updateCharacteristic(
+        this.Characteristic.TargetTemperature, printerObject.target);
+      this.service.updateCharacteristic(
+        this.Characteristic.CurrentHeatingCoolingState, this.getHeatingCoolingState(printerObject.target));
+    }
+
+    if (typeof printerObject.temperature === 'number') {
+      this.service.updateCharacteristic(
+        this.Characteristic.CurrentTemperature, printerObject.temperature);
     }
   }
 
-  private fahrenheitToCelsius(fahrenheit: number): number {
-    return (fahrenheit - 32) * 5/9;
+  private async getTargetTemperatureCelsius(): Promise<number> {
+    const data = await this.context.device.getOctoprintPrinterData()
+      .catch(handleError(this.context.log, this.context.config.moonrakerUrl, undefined));
+
+    const targetTemperature = this.type === ThermostatType.BedHeater
+      ? data?.temperature?.bed?.target
+      : data?.temperature?.tool0?.target;
+
+    if (targetTemperature === undefined) {
+      return this.state.targetTemperature;
+    }
+
+    this.state.targetTemperature = targetTemperature;
+    if (targetTemperature > 0) {
+      this.lastRequestedTemperature = targetTemperature;
+    }
+
+    return targetTemperature;
   }
 
-  private celsiusToFahrenheit(celsius: number): number {
-    return (celsius * 9/5) + 32;
+  private async applyHeaterTarget(celsius: number): Promise<void> {
+    const request = this.type === ThermostatType.BedHeater
+      ? this.context.device.setBedTemperature(celsius)
+      : this.context.device.setExtruderTemperature(celsius);
+
+    await request.catch(handleError(this.context.log, this.context.config.moonrakerUrl, undefined));
   }
 
-  private isFahrenheit() {
-    return this.state.displayUnits === this.Characteristic.TemperatureDisplayUnits.FAHRENHEIT;
+  private updateThermostatCharacteristics() {
+    this.service.updateCharacteristic(
+      this.Characteristic.TargetTemperature, this.state.targetTemperature);
+    this.service.updateCharacteristic(
+      this.Characteristic.CurrentHeatingCoolingState, this.getHeatingCoolingState(this.state.targetTemperature));
+    this.service.updateCharacteristic(
+      this.Characteristic.TargetHeatingCoolingState, this.heatingMode);
+  }
+
+  private getHeatingCoolingState(targetTemperature: number): number {
+    return targetTemperature > 0
+      ? this.Characteristic.CurrentHeatingCoolingState.HEAT
+      : this.Characteristic.CurrentHeatingCoolingState.OFF;
   }
 }
